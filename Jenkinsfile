@@ -1,11 +1,49 @@
 pipeline {
-   agent { node { label 'docker_node'  }}
-   stages {
-     
-      stage('blue-green-deployment') {
-          steps{  script{          sh '''
-          set +e
+  agent { node { label 'docker_node'  }}
+  stages {
+     stage('Cloning Git') {
+      steps {          git 'https://github.com/karthilinux91/Demo_project1.git'       }
+    }
+    
+     stage('blue-green-deployment') {
+          steps{
+              script{
+      
+         
+        sh " sed -i 's/NAME_SPACE/${NAME_SPACE}/g' k8s/blue-green/1blue-green-namespace.yaml"
+        sh " sed -i 's/APP_NAME/${APP_NAME}/g'  k8s/blue-green/1blue-green-namespace.yaml"
+        sh " sed -i 's%IMAGE_NAME%${IMAGE_NAME}%g' k8s/blue-green/1blue-green-namespace.yaml"
+        sh " sed -i 's/VERSION/${VERSION}/g' k8s/blue-green/1blue-green-namespace.yaml"
+        sh " sed -i 's/CLUSTER_NAME/${CLUSTER_NAME}/g' k8s/blue-green/1blue-green-namespace.yaml"
+        sh " sed -i 's/VIRTUAL_NAME/${VIRTUAL_NAME}/g'  k8s/blue-green/1blue-green-namespace.yaml"
+        sh " sed -i 's/DNS_NAME/${DNS_NAME}/g' k8s/blue-green/1blue-green-namespace.yaml"
+        
+        sh " sed -i 's/NAME_SPACE/${NAME_SPACE}/g' k8s/blue-green/2blue-green-deployment.yaml"
+        sh " sed -i 's/APP_NAME/${APP_NAME}/g'   k8s/blue-green/2blue-green-deployment.yaml"
+        sh " sed -i 's%IMAGE_NAME%${IMAGE_NAME}%g'  k8s/blue-green/2blue-green-deployment.yaml"
+        sh " sed -i 's/VERSION/${VERSION}/g'  k8s/blue-green/2blue-green-deployment.yaml"
+        sh " sed -i 's/CLUSTER_NAME/${CLUSTER_NAME}/g' k8s/blue-green/2blue-green-deployment.yaml"
+        sh " sed -i 's/VIRTUAL_NAME/${VIRTUAL_NAME}/g' k8s/blue-green/2blue-green-deployment.yaml"
+        sh " sed -i 's/DNS_NAME/${DNS_NAME}/g' k8s/blue-green/2blue-green-deployment.yaml"
 
+        sh " sed -i 's/NAME_SPACE/${NAME_SPACE}/g' k8s/blue-green/3blue-green-cluster-service.yaml"
+        sh " sed -i 's/APP_NAME/${APP_NAME}/g'  k8s/blue-green/3blue-green-cluster-service.yaml"
+        sh " sed -i 's%IMAGE_NAME%${IMAGE_NAME}%g'  k8s/blue-green/3blue-green-cluster-service.yaml"
+        sh " sed -i 's/VERSION/${VERSION}/g' k8s/blue-green/3blue-green-cluster-service.yaml"
+        sh " sed -i 's/CLUSTER_NAME/${CLUSTER_NAME}/g' k8s/blue-green/3blue-green-cluster-service.yaml"
+        sh " sed -i 's/VIRTUAL_NAME/${VIRTUAL_NAME}/g' k8s/blue-green/3blue-green-cluster-service.yaml"
+        sh " sed -i 's/DNS_NAME/${DNS_NAME}/g' k8s/blue-green/3blue-green-cluster-service.yaml"
+        
+        sh " sed -i 's/NAME_SPACE/${NAME_SPACE}/g' k8s/blue-green/4blue-green-virtual-service.yaml"
+        sh " sed -i 's/APP_NAME/${APP_NAME}/g'  k8s/blue-green/4blue-green-virtual-service.yaml"
+        sh " sed -i 's%IMAGE_NAME%${IMAGE_NAME}%g'  k8s/blue-green/4blue-green-virtual-service.yaml"
+        sh " sed -i 's/VERSION/${VERSION}/g'  k8s/blue-green/4blue-green-virtual-service.yaml"
+        sh " sed -i 's/CLUSTER_NAME/${CLUSTER_NAME}/g' k8s/blue-green/4blue-green-virtual-service.yaml"
+        sh " sed -i 's/VIRTUAL_NAME/${VIRTUAL_NAME}/g'  k8s/blue-green/4blue-green-virtual-service.yaml"
+        sh " sed -i 's/DNS_NAME/${DNS_NAME}/g' k8s/blue-green/4blue-green-virtual-service.yaml"
+        
+         sh '''
+         set +e
          /home/centos/linux-amd64/kubectl --kubeconfig /home/centos/linux-amd64/kube.config get ns
          /home/centos/linux-amd64/kubectl --kubeconfig /home/centos/linux-amd64/kube.config get ns | grep  ${NAME_SPACE}
          if [ $? -eq 0 ]
@@ -93,15 +131,43 @@ pipeline {
             }  }
                                 } 
 
-    stage ('WaitForConfirmation') {
-            input {       message "Delete OLD deployment ?"           
-                          ok "Yes, go ahead."      }
-            steps {              echo "Moving on to perform delete old deployment  ..................."            }            
+    stage ('WaitForConfirmation Roll Back') {
+            input {       message "are you ready to roll back to previous version?"            
+                         ok "Yes, go ahead."      }
+            steps {              echo "Moving on to Roll back ..................."            }            
         }
+
+
+
+    stage('Roll Back -  switch traffic green to blue') {
+          steps{ 
+              script {  
+                   sh ''' 
+
+                         cat k8s/blue-green/3blue-green-cluster-service.yaml
+                         echo ${VERSION}
+                         echo ${CURRENT_VERSION}
+                         sed -i 's/'${VERSION}'/'${CURRENT_VERSION}'/g'  k8s/blue-green/3blue-green-cluster-service.yaml
+                         
+                         sed -i "s/'apiVersion: v${CURRENT_VERSION}'/'apiVersion: v1'/g" k8s/blue-green/3blue-green-cluster-service.yaml
+                         cat k8s/blue-green/3blue-green-cluster-service.yaml
+                         
+                         /home/centos/linux-amd64/kubectl --kubeconfig /home/centos/linux-amd64/kube.config apply -f k8s/blue-green/3blue-green-cluster-service.yaml
+                    '''   
+            }  }
+                                }                               
+
+ 
     
-    stage('Delete old deployment') {
+    stage('list of  deployment') {
           steps{              
-            sh '/home/centos/linux-amd64/kubectl --kubeconfig /home/centos/linux-amd64/kube.config get deployment -n ${NAME_SPACE}'
+            sh '''
+            /home/centos/linux-amd64/kubectl --kubeconfig /home/centos/linux-amd64/kube.config get deployment -n ${NAME_SPACE}
+            echo "${APP_NAME}-${VERSION}"
+
+            '''
+
+
                 }
                                 } 
   
